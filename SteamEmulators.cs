@@ -2,13 +2,16 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using AchievementsLocal.Models;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Playnite.Common.Web;
 using Playnite.SDK;
 using PluginCommon;
+
 
 namespace AchievementsLocal
 {
@@ -26,9 +29,9 @@ namespace AchievementsLocal
             AchievementsDirectories.Add("%PUBLIC%\\Documents\\Steam\\CODEX");
             AchievementsDirectories.Add("%appdata%\\Steam\\CODEX");
 
-            AchievementsDirectories.Add(Environment.ExpandEnvironmentVariables("%ProgramData%\\Steam"));
-            AchievementsDirectories.Add(Environment.ExpandEnvironmentVariables("%localappdata%\\SKIDROW"));
-            AchievementsDirectories.Add(Environment.ExpandEnvironmentVariables("%DOCUMENTS%\\SKIDROW"));
+            AchievementsDirectories.Add("%ProgramData%\\Steam");
+            AchievementsDirectories.Add("%localappdata%\\SKIDROW");
+            AchievementsDirectories.Add("%DOCUMENTS%\\SKIDROW");
         }
 
         public GameAchievements GetAchievementsLocal(string GameName, string apiKey)
@@ -76,14 +79,17 @@ namespace AchievementsLocal
         }
 
 
-        private int GetSteamId(string GameName, bool IsLoop = false)
+        private int GetSteamId(string GameName, JObject ListSteamGame = null, bool IsLoop1 = false, bool IsLoop2 = false)
         {
             string url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/";
 
             try
-            {    
-                string ResultWeb = HttpDownloader.DownloadString(url, Encoding.UTF8);
-                JObject ListSteamGame = JObject.Parse(ResultWeb);
+            {
+                if (ListSteamGame == null)
+                {
+                    string ResultWeb = HttpDownloader.DownloadString(url, Encoding.UTF8);
+                    ListSteamGame = JObject.Parse(ResultWeb);
+                }
 
                 foreach (JObject Apps in ListSteamGame["applist"]["apps"])
                 {
@@ -117,17 +123,26 @@ namespace AchievementsLocal
             }
 
             logger.Error($"AchievementsLocal - No Find SteamId for {GameName}. ");
-
-            if (!IsLoop)
+            
+            if (!IsLoop1)
             {
-                int SteamId = GetSteamId(GameName.Replace(":", ""), true);
+                int SteamId = GetSteamId(GameName.Replace(":", ""), ListSteamGame, true);
                 if (SteamId != 0)
                 {
-                    logger.Info($"AchievementsLocal - Find SteamId in loop. ");
+                    logger.Info($"AchievementsLocal - Find SteamId in loop1");
                     return SteamId;
                 }
             }
-            
+            if (!IsLoop2)
+            {
+                int SteamId = GetSteamId(GameName + "™", ListSteamGame, false, true);
+                if (SteamId != 0)
+                {
+                    logger.Info($"AchievementsLocal - Find SteamId in loop2");
+                    return SteamId;
+                }
+            }
+
             return 0;
         }
 
@@ -146,7 +161,6 @@ namespace AchievementsLocal
                 {
                     case ("%public%\\documents\\steam\\codex"):
                     case ("%appdata%\\steam\\codex"):
-
                         if (File.Exists(Environment.ExpandEnvironmentVariables(DirAchivements) + $"\\{SteamId}\\achievements.ini"))
                         {
                             string line;
@@ -186,6 +200,85 @@ namespace AchievementsLocal
                             }
                             file.Close();
                         }
+                        break;
+
+                    case "%programdata%\\steam":
+                        string[] dirsUsers = Directory.GetDirectories(Environment.ExpandEnvironmentVariables("%ProgramData%\\Steam"));
+                        foreach (string dirUser in dirsUsers)
+                        {
+                            if (File.Exists(dirUser + $"\\{SteamId}\\stats\\achievements.ini"))
+                            {
+                                string line;
+
+                                string Name = "";
+                                bool State = false;
+                                string sTimeUnlock = "";
+                                int timeUnlock = 0;
+                                DateTime? DateUnlocked = null;
+
+                                StreamReader file = new StreamReader(dirUser + $"\\{SteamId}\\stats\\achievements.ini");
+                                while ((line = file.ReadLine()) != null)
+                                {
+                                    // Achievement name
+                                    if (line.IndexOf("[") > -1)
+                                    {
+                                        Name = line.Replace("[", "").Replace("]", "").Trim();
+                                        State = false;
+                                        timeUnlock = 0;
+                                        DateUnlocked = null;
+                                    }
+
+                                    if (Name != "Steam")
+                                    {
+                                        // State
+                                        if (line.IndexOf("State") > -1 && line.ToLower() != "state = 0000000000")
+                                        {
+                                            State = true;
+                                        }
+
+                                        // Unlock
+                                        if (line.IndexOf("Time") > -1 && line.ToLower() != "time = 0000000000")
+                                        {
+                                            sTimeUnlock = line.Replace("Time = ", "");
+                                            timeUnlock = BitConverter.ToInt32(StringToByteArray(line.Replace("Time = ", "")), 0);
+                                        }
+                                        if (line.IndexOf("CurProgress") > -1 && line.ToLower() != "curprogress = 0000000000")
+                                        {
+                                            sTimeUnlock = line.Replace("CurProgress = ", "");
+                                            timeUnlock = BitConverter.ToInt32(StringToByteArray(line.Replace("CurProgress = ", "")), 0);
+                                        }
+                                        DateUnlocked = new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(timeUnlock);
+
+                                        // End Achievement
+                                        if (timeUnlock != 0 && State)
+                                        {
+                                            ReturnAchievements.Add(new Achievements
+                                            {
+                                                Name = Name,
+                                                Description = "",
+                                                UrlUnlocked = "",
+                                                UrlLocked = "",
+                                                DateUnlocked = DateUnlocked
+                                            });
+
+                                            Name = "";
+                                            State = false;
+                                            timeUnlock = 0;
+                                            DateUnlocked = null;
+                                        }
+                                    }
+                                }
+                                file.Close();
+                            }
+                        }
+
+
+
+                        //int vOut = BitConverter.ToInt32(StringToByteArray("287AED57E6"), 0);
+                        //logger.Debug("vOut : " + vOut);
+                        //
+                        //new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(vOut);
+
                         break;
                 }
             }
@@ -287,6 +380,16 @@ namespace AchievementsLocal
             //logger.Debug($"AchievementsLocal - End - " + JsonConvert.SerializeObject(ReturnAchievements));
 
             return ReturnAchievements;
+        }
+
+
+
+        public static byte[] StringToByteArray(string hex)
+        {
+            return Enumerable.Range(0, hex.Length)
+                             .Where(x => x % 2 == 0)
+                             .Select(x => Convert.ToByte(hex.Substring(x, 2), 16))
+                             .ToArray();
         }
     }
 }
