@@ -111,36 +111,25 @@ namespace AchievementsLocal
                         case HttpStatusCode.ServiceUnavailable: // HTTP 503
                             break;
                         default:
-                            var LineNumber = new StackTrace(ex, true).GetFrame(0).GetFileLineNumber();
-                            string FileName = new StackTrace(ex, true).GetFrame(0).GetFileName();
-                            logger.Error(ex, $"AchievementsLocal [{FileName} {LineNumber}] - Failed to load from {url}. ");
+                            Common.LogError(ex, "AchievementsLocal", $"Failed to load from {url}");
                             break;
                     }
 
-                    logger.Error($"AchievementsLocal - No Find SteamId for {GameName}. ");
+                    logger.Info($"AchievementsLocal - No Find SteamId for {GameName} {IsLoop1} {IsLoop2}");
                     return 0;
                 }
             }
 
-            logger.Error($"AchievementsLocal - No Find SteamId for {GameName}. ");
+            logger.Info($"AchievementsLocal - No Find SteamId for {GameName} {IsLoop1} {IsLoop2}");
             
             if (!IsLoop1)
             {
                 int SteamId = GetSteamId(GameName.Replace(":", ""), ListSteamGame, true);
-                if (SteamId != 0)
+                if ((SteamId == 0) && (!IsLoop2))
                 {
-                    logger.Info($"AchievementsLocal - Find SteamId in loop1");
-                    return SteamId;
+                    SteamId = GetSteamId(GameName + "™", ListSteamGame, true, true);
                 }
-            }
-            if (!IsLoop2)
-            {
-                int SteamId = GetSteamId(GameName + "™", ListSteamGame, false, true);
-                if (SteamId != 0)
-                {
-                    logger.Info($"AchievementsLocal - Find SteamId in loop2");
-                    return SteamId;
-                }
+                return SteamId;
             }
 
             return 0;
