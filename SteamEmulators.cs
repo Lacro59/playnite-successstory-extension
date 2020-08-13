@@ -22,6 +22,8 @@ namespace AchievementsLocal
         private List<string> AchievementsDirectories = new List<string>();
         private string PluginUserDataPath;
 
+        private int SteamId { get; set; } = 0;
+
         public SteamEmulators(IPlayniteAPI PlayniteApi, string PluginUserDataPath)
         {
             this.PlayniteApi = PlayniteApi;
@@ -44,7 +46,7 @@ namespace AchievementsLocal
             int Locked = 0;
 
             SteamApi steamApi = new SteamApi(PluginUserDataPath);
-            int SteamId = steamApi.GetSteamId(GameName);
+            SteamId = steamApi.GetSteamId(GameName);
 
             Achievements = Get(SteamId, apiKey);
             if (Achievements != new List<Achievements>())
@@ -117,7 +119,8 @@ namespace AchievementsLocal
                                 {
                                     ReturnAchievements.Add(new Achievements
                                     {
-                                        Name = Name,
+                                        ApiName = Name,
+                                        Name = "",
                                         Description = "",
                                         UrlUnlocked = "",
                                         UrlLocked = "",
@@ -186,7 +189,8 @@ namespace AchievementsLocal
                                             {
                                                 ReturnAchievements.Add(new Achievements
                                                 {
-                                                    Name = Name,
+                                                    ApiName = Name,
+                                                    Name = "",
                                                     Description = "",
                                                     UrlUnlocked = "",
                                                     UrlLocked = "",
@@ -266,6 +270,7 @@ namespace AchievementsLocal
                             {
                                 Achievements temp = new Achievements
                                 {
+                                    ApiName = ReturnAchievements[j].ApiName,
                                     Name = (string)resultItems[i]["displayName"],
                                     Description = (string)resultItems[i]["description"],
                                     UrlUnlocked = (string)resultItems[i]["icon"],
@@ -306,6 +311,11 @@ namespace AchievementsLocal
             return ReturnAchievements;
         }
 
+
+        public int GetSteamId()
+        {
+            return SteamId;
+        }
 
 
         public static byte[] StringToByteArray(string hex)
