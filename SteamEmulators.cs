@@ -7,27 +7,30 @@ using System.Net;
 using System.Text;
 using AchievementsLocal.Models;
 using Newtonsoft.Json.Linq;
-using Playnite.Common.Web;
 using Playnite.SDK;
 using PluginCommon;
-
+using PluginCommon.PlayniteResources;
+using PluginCommon.PlayniteResources.API;
+using PluginCommon.PlayniteResources.Common;
+using PluginCommon.PlayniteResources.Converters;
 
 namespace AchievementsLocal
 {
     public class SteamEmulators
     {
         private static readonly ILogger logger = LogManager.GetLogger();
-        private IPlayniteAPI PlayniteApi { get; set; }
+        private IPlayniteAPI _PlayniteApi { get; set; }
 
         private List<string> AchievementsDirectories = new List<string>();
-        private string PluginUserDataPath;
+        private string _PluginUserDataPath;
 
         private int SteamId { get; set; } = 0;
 
+
         public SteamEmulators(IPlayniteAPI PlayniteApi, string PluginUserDataPath)
         {
-            this.PlayniteApi = PlayniteApi;
-            this.PluginUserDataPath = PluginUserDataPath;
+            _PlayniteApi = PlayniteApi;
+            _PluginUserDataPath = PluginUserDataPath;
 
             AchievementsDirectories.Add("%PUBLIC%\\Documents\\Steam\\CODEX");
             AchievementsDirectories.Add("%appdata%\\Steam\\CODEX");
@@ -45,7 +48,7 @@ namespace AchievementsLocal
             int Unlocked = 0;
             int Locked = 0;
 
-            SteamApi steamApi = new SteamApi(PluginUserDataPath);
+            SteamApi steamApi = new SteamApi(_PluginUserDataPath);
             SteamId = steamApi.GetSteamId(GameName);
 
             Achievements = Get(SteamId, apiKey);
@@ -222,14 +225,14 @@ namespace AchievementsLocal
 
             #region Get details achievements
             // List details acheviements
-            string lang = CodeLang.GetSteamLang(Localization.GetPlayniteLanguageConfiguration(PlayniteApi.Paths.ConfigurationPath));
+            string lang = CodeLang.GetSteamLang(_PlayniteApi.ApplicationSettings.Language);
             string url = string.Format(@"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={0}&appid={1}&l={2}",
                 apiKey, SteamId, lang);
 
             string ResultWeb = "";
             try
             {
-                ResultWeb = HttpDownloader.DownloadString(url, Encoding.UTF8);
+                ResultWeb = Web.DownloadStringData(url).GetAwaiter().GetResult();
             }
             catch (WebException ex)
             {
