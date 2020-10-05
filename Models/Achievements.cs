@@ -14,7 +14,7 @@ namespace AchievementsLocal.Models
         /// <summary>
         /// 
         /// </summary>
-        public string ApiName { get; set; } = "";
+        public string ApiName { get; set; }
         /// <summary>
         /// 
         /// </summary>

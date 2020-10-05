@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using AchievementsLocal.Models;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Playnite.SDK;
 using PluginCommon;
@@ -96,11 +97,14 @@ namespace AchievementsLocal
                 {
                     case ("%public%\\documents\\steam\\codex"):
                     case ("%appdata%\\steam\\codex"):
+#if DEBUG
+                        logger.Debug(Environment.ExpandEnvironmentVariables(DirAchivements) + $"\\{SteamId}\\achievements.ini");
+#endif
                         if (File.Exists(Environment.ExpandEnvironmentVariables(DirAchivements) + $"\\{SteamId}\\achievements.ini"))
                         {
                             string line;
 
-                            string Name = "";
+                            string Name = string.Empty;
                             DateTime? DateUnlocked = null;
 
                             StreamReader file = new StreamReader(Environment.ExpandEnvironmentVariables(DirAchivements) + $"\\{SteamId}\\achievements.ini");
@@ -109,28 +113,28 @@ namespace AchievementsLocal
                                 // Achievement name
                                 if (line.IndexOf("[") > -1)
                                 {
-                                    Name = line.Replace("[", "").Replace("]", "").Trim();
+                                    Name = line.Replace("[", string.Empty).Replace("]", string.Empty).Trim();
                                 }
                                 // Achievement UnlockTime
                                 if (line.IndexOf("UnlockTime") > -1 && line.ToLower() != "unlocktime=0")
                                 {
-                                    DateUnlocked = new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(int.Parse(line.Replace("UnlockTime=", "")));
+                                    DateUnlocked = new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(int.Parse(line.Replace("UnlockTime=", string.Empty)));
                                 }
 
                                 // End Achievement
-                                if (line.Trim() == "" && DateUnlocked != null)
+                                if (line.Trim() == string.Empty && DateUnlocked != null)
                                 {
                                     ReturnAchievements.Add(new Achievements
                                     {
                                         ApiName = Name,
-                                        Name = "",
-                                        Description = "",
-                                        UrlUnlocked = "",
-                                        UrlLocked = "",
+                                        Name = string.Empty,
+                                        Description = string.Empty,
+                                        UrlUnlocked = string.Empty,
+                                        UrlLocked = string.Empty,
                                         DateUnlocked = DateUnlocked
                                     });
 
-                                    Name = "";
+                                    Name = string.Empty;
                                     DateUnlocked = null;
                                 }
                             }
@@ -139,6 +143,9 @@ namespace AchievementsLocal
                         break;
 
                     case "%programdata%\\steam":
+#if DEBUG
+                        logger.Debug(Environment.ExpandEnvironmentVariables("%ProgramData%\\Steam"));
+#endif
                         if (Directory.Exists(Environment.ExpandEnvironmentVariables("%ProgramData%\\Steam")))
                         {
                             string[] dirsUsers = Directory.GetDirectories(Environment.ExpandEnvironmentVariables("%ProgramData%\\Steam"));
@@ -148,9 +155,9 @@ namespace AchievementsLocal
                                 {
                                     string line;
 
-                                    string Name = "";
+                                    string Name = string.Empty;
                                     bool State = false;
-                                    string sTimeUnlock = "";
+                                    string sTimeUnlock = string.Empty;
                                     int timeUnlock = 0;
                                     DateTime? DateUnlocked = null;
 
@@ -160,7 +167,7 @@ namespace AchievementsLocal
                                         // Achievement name
                                         if (line.IndexOf("[") > -1)
                                         {
-                                            Name = line.Replace("[", "").Replace("]", "").Trim();
+                                            Name = line.Replace("[", string.Empty).Replace("]", string.Empty).Trim();
                                             State = false;
                                             timeUnlock = 0;
                                             DateUnlocked = null;
@@ -177,13 +184,13 @@ namespace AchievementsLocal
                                             // Unlock
                                             if (line.IndexOf("Time") > -1 && line.ToLower() != "time = 0000000000")
                                             {
-                                                sTimeUnlock = line.Replace("Time = ", "");
-                                                timeUnlock = BitConverter.ToInt32(StringToByteArray(line.Replace("Time = ", "")), 0);
+                                                sTimeUnlock = line.Replace("Time = ", string.Empty);
+                                                timeUnlock = BitConverter.ToInt32(StringToByteArray(line.Replace("Time = ", string.Empty)), 0);
                                             }
                                             if (line.IndexOf("CurProgress") > -1 && line.ToLower() != "curprogress = 0000000000")
                                             {
-                                                sTimeUnlock = line.Replace("CurProgress = ", "");
-                                                timeUnlock = BitConverter.ToInt32(StringToByteArray(line.Replace("CurProgress = ", "")), 0);
+                                                sTimeUnlock = line.Replace("CurProgress = ", string.Empty);
+                                                timeUnlock = BitConverter.ToInt32(StringToByteArray(line.Replace("CurProgress = ", string.Empty)), 0);
                                             }
                                             DateUnlocked = new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(timeUnlock);
 
@@ -193,14 +200,14 @@ namespace AchievementsLocal
                                                 ReturnAchievements.Add(new Achievements
                                                 {
                                                     ApiName = Name,
-                                                    Name = "",
-                                                    Description = "",
-                                                    UrlUnlocked = "",
-                                                    UrlLocked = "",
+                                                    Name = string.Empty,
+                                                    Description = string.Empty,
+                                                    UrlUnlocked = string.Empty,
+                                                    UrlLocked = string.Empty,
                                                     DateUnlocked = DateUnlocked
                                                 });
 
-                                                Name = "";
+                                                Name = string.Empty;
                                                 State = false;
                                                 timeUnlock = 0;
                                                 DateUnlocked = null;
@@ -216,6 +223,9 @@ namespace AchievementsLocal
                 }
             }
 
+#if DEBUG
+            logger.Debug($"AchievementsLocal - {JsonConvert.SerializeObject(ReturnAchievements)}");
+#endif
             if (ReturnAchievements == new List<Achievements>())
             {
                 logger.Error($"AchievementsLocal - No data for {SteamId}. ");
@@ -223,13 +233,13 @@ namespace AchievementsLocal
             }
 
 
-            #region Get details achievements
+#region Get details achievements
             // List details acheviements
             string lang = CodeLang.GetSteamLang(_PlayniteApi.ApplicationSettings.Language);
             string url = string.Format(@"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={0}&appid={1}&l={2}",
                 apiKey, SteamId, lang);
 
-            string ResultWeb = "";
+            string ResultWeb = string.Empty;
             try
             {
                 ResultWeb = Web.DownloadStringData(url).GetAwaiter().GetResult();
@@ -246,16 +256,14 @@ namespace AchievementsLocal
                         case HttpStatusCode.ServiceUnavailable: // HTTP 503
                             break;
                         default:
-                            var LineNumber = new StackTrace(ex, true).GetFrame(0).GetFileLineNumber();
-                            string FileName = new StackTrace(ex, true).GetFrame(0).GetFileName();
-                            logger.Error(ex, $"AchievementsLocal [{FileName} {LineNumber}] - Failed to load from {url}. ");
+                            Common.LogError(ex, "AchievementsLocal", $"Failed to load from {url}");
                             break;
                     }
                     return new List<Achievements>();
                 }
             }
 
-            if (ResultWeb != "")
+            if (ResultWeb != string.Empty)
             {
                 JObject resultObj = JObject.Parse(ResultWeb);
                 JArray resultItems = new JArray();
@@ -269,11 +277,11 @@ namespace AchievementsLocal
                         bool isFind = false;
                         for (int j = 0; j < ReturnAchievements.Count; j++)
                         {
-                            if (ReturnAchievements[j].Name.ToLower() == ((string)resultItems[i]["name"]).ToLower())
+                            if (ReturnAchievements[j].ApiName.ToLower() == ((string)resultItems[i]["name"]).ToLower())
                             {
                                 Achievements temp = new Achievements
                                 {
-                                    ApiName = ReturnAchievements[j].ApiName,
+                                    ApiName = (string)resultItems[i]["name"],
                                     Name = (string)resultItems[i]["displayName"],
                                     Description = (string)resultItems[i]["description"],
                                     UrlUnlocked = (string)resultItems[i]["icon"],
@@ -291,6 +299,7 @@ namespace AchievementsLocal
                         {
                             ReturnAchievements.Add(new Achievements
                             {
+                                ApiName = (string)resultItems[i]["name"],
                                 Name = (string)resultItems[i]["displayName"],
                                 Description = (string)resultItems[i]["description"],
                                 UrlUnlocked = (string)resultItems[i]["icon"],
@@ -302,15 +311,15 @@ namespace AchievementsLocal
                 }
                 catch (Exception ex)
                 {
-                    var LineNumber = new StackTrace(ex, true).GetFrame(0).GetFileLineNumber();
-                    string FileName = new StackTrace(ex, true).GetFrame(0).GetFileName();
-                    logger.Error(ex, $"AchievementsLocal [{FileName} {LineNumber}] - Failed to parse. ");
+                    Common.LogError(ex, "AchievementsLocal", $"Failed to parse");
                     return new List<Achievements>();
                 }
             }
             #endregion
-            
 
+#if DEBUG
+            logger.Debug($"AchievementsLocal - {JsonConvert.SerializeObject(ReturnAchievements)}");
+#endif
             return ReturnAchievements;
         }
 
