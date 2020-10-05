@@ -8,23 +8,33 @@ using System.Text;
 using AchievementsLocal.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Playnite.Common.Web;
 using Playnite.SDK;
 using PluginCommon;
-
+using PluginCommon.PlayniteResources;
+using PluginCommon.PlayniteResources.API;
+using PluginCommon.PlayniteResources.Common;
+using PluginCommon.PlayniteResources.Converters;
 
 namespace AchievementsLocal
 {
     public class SteamEmulators
     {
         private static readonly ILogger logger = LogManager.GetLogger();
-        private IPlayniteAPI PlayniteApi { get; set; }
+        private IPlayniteAPI _PlayniteApi { get; set; }
+
+        private string _PluginUserDataPath { get; set; }
+
+        private SteamApi steamApi { get; set; }
 
         private List<string> AchievementsDirectories = new List<string>();
 
-        public SteamEmulators(IPlayniteAPI PlayniteApi)
+
+        public SteamEmulators(IPlayniteAPI PlayniteApi, string PluginUserDataPath)
         {
-            this.PlayniteApi = PlayniteApi;
+            _PlayniteApi = PlayniteApi;
+            _PluginUserDataPath = PluginUserDataPath;
+
+            steamApi = new SteamApi(PluginUserDataPath);
 
             AchievementsDirectories.Add("%PUBLIC%\\Documents\\Steam\\CODEX");
             AchievementsDirectories.Add("%appdata%\\Steam\\CODEX");
@@ -42,7 +52,7 @@ namespace AchievementsLocal
             int Unlocked = 0;
             int Locked = 0;
 
-            int SteamId = GetSteamId(GameName);
+            int SteamId = steamApi.GetSteamId(GameName);
 
             Achievements = Get(SteamId, apiKey);
             if (Achievements != new List<Achievements>())
@@ -76,63 +86,6 @@ namespace AchievementsLocal
             };
 
             return Result;
-        }
-
-
-        private int GetSteamId(string GameName, JObject ListSteamGame = null, bool IsLoop1 = false, bool IsLoop2 = false)
-        {
-            string url = "https://api.steampowered.com/ISteamApps/GetAppList/v2/";
-
-            try
-            {
-                if (ListSteamGame == null)
-                {
-                    string ResultWeb = HttpDownloader.DownloadString(url, Encoding.UTF8);
-                    ListSteamGame = JObject.Parse(ResultWeb);
-                }
-
-                foreach (JObject Apps in ListSteamGame["applist"]["apps"])
-                {
-                    if (GameName.ToLower() == ((string)Apps["name"]).ToLower())
-                    {
-                        return int.Parse((string)Apps["appid"]);
-                    }
-                }
-            }
-            catch (WebException ex)
-            {
-                if (ex.Status == WebExceptionStatus.ProtocolError && ex.Response != null)
-                {
-                    var resp = (HttpWebResponse)ex.Response;
-                    switch (resp.StatusCode)
-                    {
-                        case HttpStatusCode.BadRequest: // HTTP 400
-                            break;
-                        case HttpStatusCode.ServiceUnavailable: // HTTP 503
-                            break;
-                        default:
-                            Common.LogError(ex, "AchievementsLocal", $"Failed to load from {url}");
-                            break;
-                    }
-
-                    logger.Info($"AchievementsLocal - No Find SteamId for {GameName} {IsLoop1} {IsLoop2}");
-                    return 0;
-                }
-            }
-
-            logger.Info($"AchievementsLocal - No Find SteamId for {GameName} {IsLoop1} {IsLoop2}");
-            
-            if (!IsLoop1)
-            {
-                int SteamId = GetSteamId(GameName.Replace(":", ""), ListSteamGame, true);
-                if ((SteamId == 0) && (!IsLoop2))
-                {
-                    SteamId = GetSteamId(GameName + "™", ListSteamGame, true, true);
-                }
-                return SteamId;
-            }
-
-            return 0;
         }
 
 
@@ -278,18 +231,17 @@ namespace AchievementsLocal
                 return new List<Achievements>();
             }
 
-            //logger.Debug($"AchievementsLocal - Middle - " + JsonConvert.SerializeObject(ReturnAchievements));
 
             #region Get details achievements
             // List details acheviements
-            string lang = CodeLang.GetSteamLang(Localization.GetPlayniteLanguageConfiguration(PlayniteApi.Paths.ConfigurationPath));
+            string lang = CodeLang.GetSteamLang(_PlayniteApi.ApplicationSettings.Language);
             string url = string.Format(@"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={0}&appid={1}&l={2}",
                 apiKey, SteamId, lang);
 
             string ResultWeb = "";
             try
             {
-                ResultWeb = HttpDownloader.DownloadString(url, Encoding.UTF8);
+                ResultWeb = Web.DownloadStringData(url).GetAwaiter().GetResult();
             }
             catch (WebException ex)
             {
