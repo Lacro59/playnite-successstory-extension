@@ -35,8 +35,8 @@
       <HintPath>packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Playnite.SDK, Version=5.3.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\PlayniteSDK.5.3.0-rc\lib\net462\Playnite.SDK.dll</HintPath>
+    <Reference Include="Playnite.SDK, Version=5.5.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\PlayniteSDK.5.5.0\lib\net462\Playnite.SDK.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
@@ -58,14 +58,19 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="playnite-plugincommon\PluginCommon.csproj">
-      <Project>{e05ac297-6067-4270-a572-1df926bb3635}</Project>
-      <Name>PluginCommon</Name>
-      <Private>False</Private>
-    </ProjectReference>
+    <Folder Include="Resources\" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Resources\" />
+    <ProjectReference Include="playnite-plugincommon\CommonControls\CommonControls.csproj">
+      <Project>{9acfa07b-718c-4546-ac27-a9fce42f61f7}</Project>
+      <Name>CommonControls</Name>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="playnite-plugincommon\CommonPlaynite\CommonPlaynite.csproj">
+      <Project>{a4c600fb-92f5-4fd6-ad6b-0c0e0cf2ec81}</Project>
+      <Name>CommonPlaynite</Name>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
