@@ -64,12 +64,10 @@
     <ProjectReference Include="playnite-plugincommon\CommonControls\CommonControls.csproj">
       <Project>{9acfa07b-718c-4546-ac27-a9fce42f61f7}</Project>
       <Name>CommonControls</Name>
-      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="playnite-plugincommon\CommonPlaynite\CommonPlaynite.csproj">
       <Project>{a4c600fb-92f5-4fd6-ad6b-0c0e0cf2ec81}</Project>
       <Name>CommonPlaynite</Name>
-      <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

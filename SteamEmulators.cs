@@ -229,7 +229,7 @@ namespace AchievementsLocal
             }
 
 
-#region Get details achievements
+            #region Get details achievements
             // List details acheviements
             string lang = CodeLang.GetSteamLang(_PlayniteApi.ApplicationSettings.Language);
             string url = string.Format(@"https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={0}&appid={1}&l={2}",
@@ -307,7 +307,9 @@ namespace AchievementsLocal
                 }
                 catch (Exception ex)
                 {
+#if DEBUG
                     Common.LogError(ex, "AchievementsLocal", $"Failed to parse");
+#endif
                     return new List<Achievements>();
                 }
             }
