@@ -1,13 +1,15 @@
-﻿using AchievementsLocal.Playnite;
+﻿using AchievementsLocal;
+using AchievementsLocal.Playnite;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Playnite.SDK;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
-namespace AchievementsLocal
+namespace CommonPluginsShared
 {
-    internal class SteamApi
+    public class SteamApi
     {
         private static readonly ILogger logger = LogManager.GetLogger();
 
@@ -32,7 +34,7 @@ namespace AchievementsLocal
                         // If not expired
                         if (File.GetLastWriteTime(PluginCacheFile).AddDays(3) > DateTime.Now)
                         {
-                            logger.Info("CommonShared - GetSteamAppListFromCache");
+                            logger.Info("GetSteamAppListFromCache");
                             SteamListApp = JObject.Parse(File.ReadAllText(PluginCacheFile));
                         }
                         else
@@ -53,15 +55,14 @@ namespace AchievementsLocal
             }
             catch (Exception ex)
             {
-                Common.LogError(ex, "CommonShared", "Error on load SteamListApp");
+                Common.LogError(ex, false, "Error on load SteamListApp");
             }
         }
 
+        // TODO transform to task and identified object and saved in playnite temp
         private JObject GetSteamAppListFromWeb(string PluginCacheFile)
         {
-#if DEBUG
-            logger.Debug("CommonShared [Ignored] - GetSteamAppListFromWeb");
-#endif
+            Common.LogDebug(true, "GetSteamAppListFromWeb");
 
             string responseData = string.Empty;
             try
@@ -77,9 +78,9 @@ namespace AchievementsLocal
                     File.WriteAllText(PluginCacheFile, responseData);
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                Common.LogError(ex, "CommonShared", $"Failed to load from {urlSteamListApp}");
+                Common.LogError(ex, false, $"Failed to load from {urlSteamListApp}");
                 responseData = "{\"applist\":{\"apps\":[]}}";
             }
 
@@ -89,34 +90,46 @@ namespace AchievementsLocal
         public int GetSteamId(string Name)
         {
             int SteamId = 0;
-        
+
             try
             {
                 if (SteamListApp != null && SteamListApp["applist"] != null && SteamListApp["applist"]["apps"] != null)
                 {
-                    foreach (JObject Game in SteamListApp["applist"]["apps"])
+                    string SteamAppsListString = JsonConvert.SerializeObject(SteamListApp["applist"]["apps"]);
+                    var SteamAppsList = JsonConvert.DeserializeObject<List<SteamApps>>(SteamAppsListString);
+                    SteamAppsList.Sort((x, y) => x.AppId.CompareTo(y.AppId));
+
+                    foreach (SteamApps Game in SteamAppsList)
                     {
-                        string NameSteam = Common.NormalizeGameName((string)Game["name"]);
+                        string NameSteam = Common.NormalizeGameName(Game.Name);
                         string NameSearch = Common.NormalizeGameName(Name);
 
                         if (NameSteam == NameSearch)
                         {
-                            return (int)Game["appid"];
+                            return Game.AppId;
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Common.LogError(ex, "CommonShared", $"Error with {Name}");
+                Common.LogError(ex, false, $"Error with {Name}");
             }
-        
+
             if (SteamId == 0)
             {
-                logger.Warn($"CommonShared - SteamId not find for {Name}");
+                logger.Warn($"SteamId not find for {Name}");
             }
-        
+
             return SteamId;
         }
+    }
+
+    public class SteamApps
+    {
+        [JsonProperty("appid")]
+        public int AppId { get; set; }
+        [JsonProperty("name")]
+        public string Name { get; set; }
     }
 }

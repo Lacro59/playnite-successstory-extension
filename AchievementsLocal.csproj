@@ -30,6 +30,15 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug9|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\Debug9\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
@@ -61,10 +70,10 @@
     <Compile Include="CommonPlayniteShared\StringExtensions.cs" />
     <Compile Include="CommonPlayniteShared\Xaml.cs" />
     <Compile Include="CommonPluginsShared\ImageTools.cs" />
+    <Compile Include="CommonPluginsShared\SteamApi.cs" />
     <Compile Include="Models\Achievements.cs" />
     <Compile Include="Models\GameAchievements.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="CommonPluginsShared\SteamApi.cs" />
     <Compile Include="SteamEmulators.cs" />
     <Compile Include="CommonPluginsShared\TraceInfos.cs" />
     <Compile Include="CommonPluginsShared\Web.cs" />

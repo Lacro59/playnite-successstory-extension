@@ -7,24 +7,24 @@ using System.IO;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
-namespace AchievementsLocal
+namespace CommonPluginsShared
 {
-    internal enum ImageColor
+    public enum ImageColor
     {
         None = 0,
         Gray = 1,
         Black = 2
     }
 
-    internal class ImageProperty
+    public class ImageProperty
     {
-        public int Width { get; set; } 
-        public int Height { get; set; } 
+        public int Width { get; set; }
+        public int Height { get; set; }
     }
 
-    internal class ImageTools
+    public class ImageTools
     {
-        private static ILogger logger = LogManager.GetLogger();
+        private static readonly ILogger logger = LogManager.GetLogger();
 
 
         #region ImageProperty
@@ -42,7 +42,8 @@ namespace AchievementsLocal
             }
             catch (Exception ex)
             {
-                Common.LogError(ex, "CommonShared", $"Error on GetImapeProperty()");
+                Common.LogError(ex, true, $"Error On GetImapeProperty({srcPath})");
+                logger.Error("Error on get image property");
                 return null;
             }
         }
@@ -61,7 +62,26 @@ namespace AchievementsLocal
             }
             catch (Exception ex)
             {
-                Common.LogError(ex, "CommonShared", $"Error on GetImapeProperty()");
+                Common.LogError(ex, true);
+                logger.Error("Error on get image property");
+                return null;
+            }
+        }
+
+        public static ImageProperty GetImapeProperty(Image image)
+        {
+            try
+            {
+                return new ImageProperty
+                {
+                    Width = image.Width,
+                    Height = image.Height,
+                };
+            }
+            catch (Exception ex)
+            {
+                Common.LogError(ex, true);
+                logger.Error("Error on get image property");
                 return null;
             }
         }
@@ -82,7 +102,7 @@ namespace AchievementsLocal
             }
             catch (Exception ex)
             {
-                Common.LogError(ex, "CommonShared", $"Error on Resize()");
+                Common.LogError(ex, false);
                 return string.Empty;
             }
         }
@@ -91,9 +111,8 @@ namespace AchievementsLocal
         {
             try
             {
-#if DEBUG
-                logger.Debug("CommonShared [Ignored]- Resize: " + path + ".png");
-#endif
+                Common.LogDebug(true, $"Resize: {path}.png");
+
                 Image image = Image.FromStream(imgStream);
                 Bitmap resultImage = Resize(image, width, height);
                 resultImage.Save(path + ".png");
@@ -102,16 +121,13 @@ namespace AchievementsLocal
             }
             catch (Exception ex)
             {
-#if DEBUG
-                Common.LogError(ex, "CommonShared [Ignored]");
-#endif
+                Common.LogError(ex, true);
                 return false;
             }
         }
 
         public static Bitmap Resize(Image image, int width, int height)
         {
-
             Rectangle destRect = new Rectangle(0, 0, width, height);
             Bitmap destImage = new Bitmap(width, height);
 
@@ -161,7 +177,7 @@ namespace AchievementsLocal
             }
             catch (Exception ex)
             {
-                Common.LogError(ex, "CommonShared", $"Error on ConvertBitmapImage()");
+                Common.LogError(ex, false);
             }
 
             return ConvertBitmapSource;
@@ -197,6 +213,23 @@ namespace AchievementsLocal
                 bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
                 bitmapImage.EndInit();
                 bitmapImage.Freeze();
+
+                return bitmapImage;
+            }
+        }
+
+        public static BitmapImage ConvertImageToBitmapImage(Image image)
+        {
+            using (var memory = new MemoryStream())
+            {
+                image.Save(memory, ImageFormat.Png);
+                memory.Position = 0;
+
+                var bitmapImage = new BitmapImage();
+                bitmapImage.BeginInit();
+                bitmapImage.StreamSource = memory;
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.EndInit();
 
                 return bitmapImage;
             }

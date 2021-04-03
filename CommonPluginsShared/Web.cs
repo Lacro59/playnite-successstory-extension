@@ -1,4 +1,6 @@
-﻿using Playnite.SDK;
+﻿using AchievementsLocal;
+using Newtonsoft.Json;
+using Playnite.SDK;
 using System;
 using System.Collections.Generic;
 using System.Configuration;
@@ -11,14 +13,16 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AchievementsLocal
+namespace CommonPluginsShared
 {
-    internal enum WebUserAgentType
+    // TODO https://stackoverflow.com/questions/62802238/very-slow-httpclient-sendasync-call
+
+    public enum WebUserAgentType
     {
         Request
     }
 
-    internal class Web
+    public class Web
     {
         private static ILogger logger = LogManager.GetLogger();
 
@@ -56,12 +60,12 @@ namespace AchievementsLocal
                 Stream imageStream;
                 try
                 {
-                    var response = client.GetAsync(url).Result;
-                    imageStream = await response.Content.ReadAsStreamAsync();
+                    HttpResponseMessage response = await client.GetAsync(url).ConfigureAwait(false);
+                    imageStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
-                    Common.LogError(ex, "CommonShared", $"Error on Download {url}");
+                    Common.LogError(ex, false, $"Error on download {url}");
                     return false;
                 }
 
@@ -71,7 +75,7 @@ namespace AchievementsLocal
                 }
             }
 
-            // Delete id file is empty
+            // Delete file is empty
             try
             {
                 if (File.Exists(PathImageFileName + ".png"))
@@ -85,7 +89,7 @@ namespace AchievementsLocal
             }
             catch (Exception ex)
             {
-                Common.LogError(ex, "CommonShared", $"Error on Delete file image");
+                Common.LogError(ex, false, $"Error on delete file image");
                 return false;
             }
 
@@ -103,12 +107,56 @@ namespace AchievementsLocal
             {
                 try
                 {
-                    var response = client.GetAsync(url).Result;
-                    return await response.Content.ReadAsStreamAsync();
+                    HttpResponseMessage response = await client.GetAsync(url).ConfigureAwait(false);
+                    return await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    Common.LogError(ex, "CommonShared", $"Error on Download {url}");
+                    Common.LogError(ex, false, $"Error on download {url}");
+                    return null;
+                }
+            }
+        }
+
+        public static async Task<Stream> DownloadFileStream(string url, List<HttpCookie> Cookies)
+        {
+            HttpClientHandler handler = new HttpClientHandler();
+            if (Cookies != null)
+            {
+                CookieContainer cookieContainer = new CookieContainer();
+
+                foreach (var cookie in Cookies)
+                {
+                    Cookie c = new Cookie();
+                    c.Name = cookie.Name;
+                    c.Value = cookie.Value;
+                    c.Domain = cookie.Domain;
+                    c.Path = cookie.Path;
+
+                    try
+                    {
+                        cookieContainer.Add(c);
+                    }
+                    catch (Exception ex)
+                    {
+                        Common.LogError(ex, true);
+                        logger.Warn($"Cookies ignored for {url}");
+                    }
+                }
+
+                handler.CookieContainer = cookieContainer;
+            }
+
+            using (var client = new HttpClient(handler))
+            {
+                try
+                {
+                    HttpResponseMessage response = await client.GetAsync(url).ConfigureAwait(false);
+                    return await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    Common.LogError(ex, false, $"Error on download {url}");
                     return null;
                 }
             }
@@ -133,11 +181,16 @@ namespace AchievementsLocal
                 HttpResponseMessage response;
                 try
                 {
-                    response = client.SendAsync(request).Result;
+                    response = await client.SendAsync(request).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    Common.LogError(ex, "CommonShared", $"Error on Download {url}");
+                    Common.LogError(ex, false, $"Error on download {url}");
+                    return string.Empty;
+                }
+
+                if (response == null)
+                {
                     return string.Empty;
                 }
 
@@ -151,14 +204,14 @@ namespace AchievementsLocal
                     {
                         redirectUri = new Uri(request.RequestUri.GetLeftPart(UriPartial.Authority) + redirectUri);
                     }
-#if DEBUG
-                    logger.Info(string.Format("CommonShared [Ignored] - DownloadStringData() redirecting to {0}", redirectUri));
-#endif
+
+                    Common.LogDebug(true, string.Format("DownloadStringData() redirecting to {0}", redirectUri));
+
                     return await DownloadStringData(redirectUri.ToString());
                 }
                 else
                 {
-                    return await response.Content.ReadAsStringAsync();
+                    return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 }
             }
         }
@@ -184,22 +237,27 @@ namespace AchievementsLocal
                 HttpResponseMessage response;
                 try
                 {
-                    response = client.SendAsync(request).Result;
+                    response = await client.SendAsync(request).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    Common.LogError(ex, "CommonShared", $"Error on Download {url}");
+                    Common.LogError(ex, false, $"Error on download {url}");
+                    return string.Empty;
+                }
+
+                if (response == null)
+                {
                     return string.Empty;
                 }
 
                 int statusCode = (int)response.StatusCode;
                 if (statusCode == 200)
                 {
-                    return await response.Content.ReadAsStringAsync();
+                    return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 }
                 else
                 {
-                    logger.Warn($"CommonShared - DownloadStringData() with statuscode {statusCode} for {url}");
+                    logger.Warn($"DownloadStringData() with statuscode {statusCode} for {url}");
                     return string.Empty;
                 }
             }
@@ -242,6 +300,7 @@ namespace AchievementsLocal
             var response = string.Empty;
             using (var client = new HttpClient())
             {
+                client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36");
                 client.DefaultRequestHeaders.Add("accept", "application/json, text/javascript, */*; q=0.01");
                 client.DefaultRequestHeaders.Add("Vary", "Accept-Encoding");
                 HttpContent c = new StringContent(payload, Encoding.UTF8, "application/json");
@@ -249,15 +308,19 @@ namespace AchievementsLocal
                 HttpResponseMessage result;
                 try
                 {
-                    result = await client.PostAsync(url, c);
+                    result = await client.PostAsync(url, c).ConfigureAwait(false);
                     if (result.IsSuccessStatusCode)
                     {
-                        response = await result.Content.ReadAsStringAsync();
+                        response = await result.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        logger.Error($"Web error with status code {result.StatusCode.ToString()}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Common.LogError(ex, "CommonShared", $"Error on Post {url}");
+                    Common.LogError(ex, false, $"Error on Post {url}");
                 }
             }
 
@@ -276,26 +339,112 @@ namespace AchievementsLocal
         public static async Task<string> PostStringDataCookies(string url, FormUrlEncodedContent formContent, List<HttpCookie> Cookies = null)
         {
             var response = string.Empty;
-            using (var client = new HttpClient())
+
+            HttpClientHandler handler = new HttpClientHandler();
+            if (Cookies != null)
             {
-                if (Cookies != null)
+                CookieContainer cookieContainer = new CookieContainer();
+
+                foreach (var cookie in Cookies)
                 {
-                    var cookieString = string.Join(";", Cookies.Select(a => $"{a.Name}={a.Value}"));
-                    client.DefaultRequestHeaders.Add("Cookie", cookieString);
+                    Cookie c = new Cookie();
+                    c.Name = cookie.Name;
+                    c.Value = cookie.Value;
+                    c.Domain = cookie.Domain;
+                    c.Path = cookie.Path;
+
+                    try
+                    {
+                        cookieContainer.Add(c);
+                    }
+                    catch (Exception ex)
+                    {
+                        Common.LogError(ex, true);
+                        logger.Warn($"Cookies ignored for {url}");
+                    }
                 }
-                
+
+                handler.CookieContainer = cookieContainer;
+            }
+
+            using (var client = new HttpClient(handler))
+            {
+                client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36");
+
                 HttpResponseMessage result;
                 try
                 {
-                    result = client.PostAsync(url, formContent).Result;
+                    result = await client.PostAsync(url, formContent).ConfigureAwait(false);
                     if (result.IsSuccessStatusCode)
                     {
-                        response = await result.Content.ReadAsStringAsync();
+                        response = await result.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        logger.Error($"Web error with status code {result.StatusCode.ToString()}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Common.LogError(ex, "CommonShared", $"Error on Post {url}");
+                    Common.LogError(ex, false, $"Error on Post {url}");
+                }
+            }
+
+            return response;
+        }
+
+
+        public static async Task<string> DownloadStringData(string url, List<HttpCookie> Cookies = null)
+        {
+            var response = string.Empty;
+
+            HttpClientHandler handler = new HttpClientHandler();
+            if (Cookies != null)
+            {
+                CookieContainer cookieContainer = new CookieContainer();
+
+                foreach (var cookie in Cookies)
+                {
+                    Cookie c = new Cookie();
+                    c.Name = cookie.Name;
+                    c.Value = cookie.Value;
+                    c.Domain = cookie.Domain;
+                    c.Path = cookie.Path;
+
+                    try
+                    {
+                        cookieContainer.Add(c);
+                    }
+                    catch (Exception ex)
+                    {
+                        Common.LogError(ex, true);
+                        logger.Warn($"Cookies ignored for {url}");
+                    }
+                }
+
+                handler.CookieContainer = cookieContainer;
+            }
+
+            using (var client = new HttpClient(handler))
+            {
+                client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Safari/537.36");
+
+                HttpResponseMessage result;
+                try
+                {
+                    result = await client.GetAsync(url).ConfigureAwait(false);
+                    if (result.IsSuccessStatusCode)
+                    {
+                        response = await result.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        logger.Error($"Web error with status code {result.StatusCode.ToString()}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Common.LogError(ex, false, $"Error on Post {url}");
                 }
             }
 

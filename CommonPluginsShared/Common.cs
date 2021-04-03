@@ -1,6 +1,5 @@
 ﻿using Newtonsoft.Json;
 using Playnite.SDK;
-using AchievementsLocal.Playnite;
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -9,81 +8,14 @@ using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Media;
+using AchievementsLocal.Playnite;
 using AchievementsLocal.Models;
 
-namespace AchievementsLocal
+namespace CommonPluginsShared
 {
-    internal class Common
+    public class Common
     {
         private static ILogger logger = LogManager.GetLogger();
-
-
-        /// <summary>
-        /// Set in application ressources the common ressources.
-        /// </summary>
-        /// <param name="pluginFolder"></param>
-        public static void Load(string pluginFolder)
-        {
-            List<string> ListCommonFiles = new List<string>
-            {
-                Path.Combine(pluginFolder, "Resources\\Common.xaml"),
-                Path.Combine(pluginFolder, "Resources\\LiveChartsCommon\\Common.xaml")
-            };
-
-            foreach (string CommonFile in ListCommonFiles)
-            {
-                if (File.Exists(CommonFile))
-                {
-#if DEBUG
-                    logger.Debug($"CommonShared [Ignored] - Load {CommonFile}");
-#endif
-
-                    ResourceDictionary res = null;
-                    try
-                    {
-                        res = Xaml.FromFile<ResourceDictionary>(CommonFile);
-                        res.Source = new Uri(CommonFile, UriKind.Absolute);
-
-                        foreach (var key in res.Keys)
-                        {
-                            if (res[key] is string locString && locString.IsNullOrEmpty())
-                            {
-                                res.Remove(key);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        LogError(ex, "CommonShared", $"Failed to parse file {CommonFile}");
-                        return;
-                    }
-
-#if DEBUG
-                    logger.Debug($"CommonShared [Ignored] - res: {JsonConvert.SerializeObject(res)}");
-#endif
-                    Application.Current.Resources.MergedDictionaries.Add(res);
-                }
-                else
-                {
-                    logger.Warn($"CommonShared - File {CommonFile} not find");
-                    return;
-                }
-            }
-
-
-            // Add font
-            string FontFile = Path.Combine(pluginFolder, "Resources\\font.ttf");
-            if (File.Exists(FontFile))
-            {
-                FontFamily fontFamily = new FontFamily(new Uri(FontFile), "./#font");
-                Application.Current.Resources.Remove("CommonFont");
-                Application.Current.Resources.Add("CommonFont", fontFamily);
-            }
-            else
-            {
-                logger.Warn($"CommonShared - -File not find {FontFile}");
-            }
-        }
 
 
         public static void SetEvent(IPlayniteAPI PlayniteAPI)
@@ -96,7 +28,7 @@ namespace AchievementsLocal
 
         private static void WindowBase_LoadedEvent(object sender, System.EventArgs e)
         {
-            string WinIdProperty = String.Empty;
+            string WinIdProperty = string.Empty;
 
             try
             {
@@ -104,48 +36,84 @@ namespace AchievementsLocal
 
                 if (WinIdProperty == "WindowSettings")
                 {
-                    ((Window)sender).Width = 850;
+                    ((Window)sender).Width = 860;
                 }
             }
             catch (Exception ex)
             {
-                Common.LogError(ex, "CommonShared", $"Error on WindowBase_LoadedEvent for {WinIdProperty}");
+                Common.LogError(ex, false, $"Error on WindowBase_LoadedEvent for {WinIdProperty}");
             }
         }
 
 
 
-        /// <summary>
-        /// Normalize log error in Playnite.
-        /// </summary>
-        /// <param name="ex"></param>
-        /// <param name="PluginName"></param>
-        public static void LogError(Exception ex, string PluginName)
+
+        #region Logs
+        public static void LogDebug(bool IsIgnored, string Message)
+        {
+            if (IsIgnored)
+            {
+                Message = $"[Ignored] {Message}";
+            }
+
+#if DEBUG
+            logger.Debug(Message);
+#else
+            if (!IsIgnored) 
+            {            
+                logger.Debug(Message); 
+            }
+#endif
+        }
+
+        public static void LogError(Exception ex, bool IsIgnored)
         {
             TraceInfos traceInfos = new TraceInfos(ex);
-            string Message = $"{PluginName} [{traceInfos.FileName} {traceInfos.LineNumber}]";
+            string Message = string.Empty;
+
+            if (IsIgnored)
+            {
+                Message = $"[Ignored] ";
+            }
 
             if (!traceInfos.InitialCaller.IsNullOrEmpty())
             {
-                Message += $" - Error on {traceInfos.InitialCaller}()";
+                Message += $"Error on {traceInfos.InitialCaller}()";
             }
 
+            Message += $"|{traceInfos.FileName}|{traceInfos.LineNumber}";
+
+#if DEBUG
             logger.Error(ex, $"{Message}");
+#else
+            if (!IsIgnored) 
+            {
+                logger.Error(ex, $"{Message}");
+            }
+#endif
         }
 
-        /// <summary>
-        /// Normalize log error in Playnite.
-        /// </summary>
-        /// <param name="ex"></param>
-        /// <param name="PluginName"></param>
-        /// <param name="Message"></param>
-        public static void LogError(Exception ex, string PluginName, string Message)
+        public static void LogError(Exception ex, bool IsIgnored, string Message)
         {
             TraceInfos traceInfos = new TraceInfos(ex);
-            Message = $"{PluginName} [{traceInfos.FileName} {traceInfos.LineNumber}] - {Message}";
 
+            if (IsIgnored)
+            {
+                Message = $"[Ignored] {Message}";
+            }
+
+            Message = $"{Message}|{traceInfos.FileName}|{traceInfos.LineNumber}";
+
+#if DEBUG
             logger.Error(ex, $"{Message}");
+#else
+            if (!IsIgnored) 
+            {
+                logger.Error(ex, $"{Message}");
+            }
+#endif
         }
+        #endregion
 
 
         public static string NormalizeGameName(string name)

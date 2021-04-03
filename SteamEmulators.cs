@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using AchievementsLocal.Models;
+using CommonPluginsShared;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Playnite.SDK;
@@ -48,7 +49,7 @@ namespace AchievementsLocal
             SteamId = steamApi.GetSteamId(GameName);
 
             Achievements = Get(SteamId, apiKey);
-            if (Achievements != new List<Achievements>())
+            if (Achievements.Count > 0)
             {
                 HaveAchivements = true;
 
@@ -251,14 +252,14 @@ namespace AchievementsLocal
                         case HttpStatusCode.ServiceUnavailable: // HTTP 503
                             break;
                         default:
-                            Common.LogError(ex, "AchievementsLocal", $"Failed to load from {url}");
+                            Common.LogError(ex, false, $"Failed to load from {url}");
                             break;
                     }
                     return new List<Achievements>();
                 }
             }
 
-            if (ResultWeb != string.Empty)
+            if (ResultWeb != string.Empty && ResultWeb.Length > 50)
             {
                 JObject resultObj = JObject.Parse(ResultWeb);
                 JArray resultItems = new JArray();
@@ -306,17 +307,13 @@ namespace AchievementsLocal
                 }
                 catch (Exception ex)
                 {
-#if DEBUG
-                    Common.LogError(ex, "AchievementsLocal", $"Failed to parse");
-#endif
+                    Common.LogError(ex, true, $"Failed to parse");
                     return new List<Achievements>();
                 }
             }
             #endregion
 
-#if DEBUG
-            logger.Debug($"AchievementsLocal - {JsonConvert.SerializeObject(ReturnAchievements)}");
-#endif
+            Common.LogDebug(true, $"{JsonConvert.SerializeObject(ReturnAchievements)}");
             return ReturnAchievements;
         }
 
