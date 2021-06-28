@@ -6,13 +6,18 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using AchievementsLocal.Models;
-using CommonPluginsShared;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Playnite.SDK;
 
 namespace AchievementsLocal
 {
+    public class Folder
+    {
+        public string FolderPath { get; set; }
+    }
+
+
     public class SteamEmulators
     {
         private static readonly ILogger logger = LogManager.GetLogger();
@@ -24,7 +29,7 @@ namespace AchievementsLocal
         private int SteamId { get; set; } = 0;
 
 
-        public SteamEmulators(IPlayniteAPI PlayniteApi, string PluginUserDataPath)
+        public SteamEmulators(IPlayniteAPI PlayniteApi, string PluginUserDataPath, List<Folder> LocalFolders)
         {
             _PlayniteApi = PlayniteApi;
             _PluginUserDataPath = PluginUserDataPath;
@@ -35,6 +40,11 @@ namespace AchievementsLocal
             AchievementsDirectories.Add("%ProgramData%\\Steam");
             AchievementsDirectories.Add("%localappdata%\\SKIDROW");
             AchievementsDirectories.Add("%DOCUMENTS%\\SKIDROW");
+
+            foreach (Folder folder in LocalFolders)
+            {
+                AchievementsDirectories.Add(folder.FolderPath);
+            }
         }
 
         public GameAchievements GetAchievementsLocal(string GameName, string apiKey)
@@ -49,7 +59,7 @@ namespace AchievementsLocal
             SteamId = steamApi.GetSteamId(GameName);
 
             Achievements = Get(SteamId, apiKey);
-            if (Achievements.Count > 0)
+            if (Achievements != new List<Achievements>())
             {
                 HaveAchivements = true;
 
@@ -216,6 +226,35 @@ namespace AchievementsLocal
                         }
 
                         break;
+
+                    case "%localappdata%\\skidrow":
+                        logger.Warn($"no treatment for {DirAchivements}");
+                        break;
+
+                    case "%documents%\\skidrow":
+                        logger.Warn($"no treatment for {DirAchivements}");
+                        break;
+
+                    default:
+                        if (!DirAchivements.ToLower().Contains("steamemu"))
+                        {
+                            ReturnAchievements = GetSteamEmu(DirAchivements + $"\\{SteamId}\\SteamEmu");
+                        }
+                        else
+                        {
+                            var DataPath = DirAchivements.Split('\\').ToList();
+                            int index = DataPath.FindIndex(x => x.ToLower() == "steamemu");
+                            string GameName = DataPath[index - 1];
+
+                            SteamApi steamApi = new SteamApi(_PluginUserDataPath);
+                            int TempSteamId = steamApi.GetSteamId(GameName);
+
+                            if (TempSteamId == SteamId)
+                            {
+                                ReturnAchievements = GetSteamEmu(DirAchivements);
+                            }
+                        }
+                        break;
                 }
             }
 
@@ -252,14 +291,14 @@ namespace AchievementsLocal
                         case HttpStatusCode.ServiceUnavailable: // HTTP 503
                             break;
                         default:
-                            Common.LogError(ex, false, $"Failed to load from {url}");
+                            Common.LogError(ex, "AchievementsLocal", $"Failed to load from {url}");
                             break;
                     }
                     return new List<Achievements>();
                 }
             }
 
-            if (ResultWeb != string.Empty && ResultWeb.Length > 50)
+            if (ResultWeb != string.Empty)
             {
                 JObject resultObj = JObject.Parse(ResultWeb);
                 JArray resultItems = new JArray();
@@ -307,13 +346,77 @@ namespace AchievementsLocal
                 }
                 catch (Exception ex)
                 {
-                    Common.LogError(ex, true, $"Failed to parse");
+#if DEBUG
+                    Common.LogError(ex, "AchievementsLocal", $"Failed to parse");
+#endif
                     return new List<Achievements>();
                 }
             }
             #endregion
 
-            Common.LogDebug(true, $"{JsonConvert.SerializeObject(ReturnAchievements)}");
+#if DEBUG
+            logger.Debug($"AchievementsLocal - {JsonConvert.SerializeObject(ReturnAchievements)}");
+#endif
+
+
+            // Delete empty (SteamEmu)
+            ReturnAchievements = ReturnAchievements.Select(x => x).Where(x => !string.IsNullOrEmpty(x.UrlLocked)).ToList();
+
+
+            return ReturnAchievements;
+        }
+
+
+        private List<Achievements> GetSteamEmu(string DirAchivements)
+        {
+            List<Achievements> ReturnAchievements = new List<Achievements>();
+
+            if (File.Exists(DirAchivements + $"\\stats.ini"))
+            {
+                bool IsGoodSection = false;
+                string line;
+
+                string Name = string.Empty;
+                DateTime? DateUnlocked = null;
+
+                StreamReader file = new StreamReader(DirAchivements + $"\\stats.ini");
+                while ((line = file.ReadLine()) != null)
+                {
+                    if (IsGoodSection)
+                    {
+                        // End list achievements unlocked
+                        if (line.IndexOf("[Achievements]") > -1)
+                        {
+                            IsGoodSection = false;
+                        }
+                        else
+                        {
+                            var data = line.Split('=');
+
+                            DateUnlocked = new DateTime(1970, 1, 1, 0, 0, 0, 0).AddSeconds(int.Parse(data[1]));
+                            Name = data[0];
+
+                            ReturnAchievements.Add(new Achievements
+                            {
+                                ApiName = Name,
+                                Name = string.Empty,
+                                Description = string.Empty,
+                                UrlUnlocked = string.Empty,
+                                UrlLocked = string.Empty,
+                                DateUnlocked = DateUnlocked
+                            });
+                        }
+                    }
+
+                    // Start list achievements unlocked
+                    if (line.IndexOf("[AchievementsUnlockTimes]") > -1)
+                    {
+                        IsGoodSection = true;
+                    }
+                }
+                file.Close();
+            }
+
             return ReturnAchievements;
         }
 
