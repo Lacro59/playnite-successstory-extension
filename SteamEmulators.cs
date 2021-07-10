@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using AchievementsLocal.Models;
+using CommonPluginsShared;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Playnite.SDK;
@@ -236,22 +237,25 @@ namespace AchievementsLocal
                         break;
 
                     default:
-                        if (!DirAchivements.ToLower().Contains("steamemu"))
+                        if (ReturnAchievements.Count == 0)
                         {
-                            ReturnAchievements = GetSteamEmu(DirAchivements + $"\\{SteamId}\\SteamEmu");
-                        }
-                        else
-                        {
-                            var DataPath = DirAchivements.Split('\\').ToList();
-                            int index = DataPath.FindIndex(x => x.ToLower() == "steamemu");
-                            string GameName = DataPath[index - 1];
-
-                            SteamApi steamApi = new SteamApi(_PluginUserDataPath);
-                            int TempSteamId = steamApi.GetSteamId(GameName);
-
-                            if (TempSteamId == SteamId)
+                            if (!DirAchivements.ToLower().Contains("steamemu"))
                             {
-                                ReturnAchievements = GetSteamEmu(DirAchivements);
+                                ReturnAchievements = GetSteamEmu(DirAchivements + $"\\{SteamId}\\SteamEmu");
+                            }
+                            else
+                            {
+                                var DataPath = DirAchivements.Split('\\').ToList();
+                                int index = DataPath.FindIndex(x => x.ToLower() == "steamemu");
+                                string GameName = DataPath[index - 1];
+
+                                SteamApi steamApi = new SteamApi(_PluginUserDataPath);
+                                int TempSteamId = steamApi.GetSteamId(GameName);
+
+                                if (TempSteamId == SteamId)
+                                {
+                                    ReturnAchievements = GetSteamEmu(DirAchivements);
+                                }
                             }
                         }
                         break;
@@ -291,7 +295,7 @@ namespace AchievementsLocal
                         case HttpStatusCode.ServiceUnavailable: // HTTP 503
                             break;
                         default:
-                            Common.LogError(ex, "AchievementsLocal", $"Failed to load from {url}");
+                            //Common.LogError(ex, "AchievementsLocal", $"Failed to load from {url}");
                             break;
                     }
                     return new List<Achievements>();
@@ -347,7 +351,7 @@ namespace AchievementsLocal
                 catch (Exception ex)
                 {
 #if DEBUG
-                    Common.LogError(ex, "AchievementsLocal", $"Failed to parse");
+                    //Common.LogError(ex, "AchievementsLocal", $"Failed to parse");
 #endif
                     return new List<Achievements>();
                 }
